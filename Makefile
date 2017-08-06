@@ -1,10 +1,11 @@
-GUROBI = /home/ich/source/gurobi702/linux64
+GUROBI = ./gurobi702/linux64
 BOOST = /usr/include/boost
 STANDARD = /usr/lib/x86_64-linux-gnu/
-CPP      = g++-4.9
+CPP      = g++-4.9 # gurobi needs an older version of g++
 CARGS    = -std=c++11
 CPPLIB   = -lgurobi_c++ -lgurobi70 -lpng -ljpeg
-#-m64 -g
+
+################################################################################
 ARGS = 0.1
 
 multicut: main.o
