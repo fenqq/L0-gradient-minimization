@@ -1,41 +1,23 @@
-#include <cstdlib>
-#include <cmath>
-#include <random>
+#ifndef GRAPH_H
+#define GRAPH_H
 
 #define png_infopp_NULL (png_infopp)NULL
 #define int_p_NULL (int*)NULL
+
 #include <boost/gil/gil_all.hpp>
 #include <boost/gil/extension/io/png_dynamic_io.hpp>
 #include <boost/gil/extension/io/jpeg_dynamic_io.hpp>
-
-#include <functional>
-#include <queue>
-#include <vector>
-#include <utility>                   // for std::pair
-#include <algorithm>                 // for std::for_each
-#include <limits>
-#include <numeric>
-#include <string>
-#include <iostream>
-#include <fstream>
 
 #include <boost/utility.hpp>                // for boost::tie
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/copy.hpp>
 
-#include <signal.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include "gurobi_c++.h"
 
-namespace bg = boost::gil;
-namespace b = boost;
+// global picture size
+extern boost::gil::point2<int> size;
 
-bg::point2<int> size;
-int num_vertices;
- 
 struct EdgeProperties{
   //bool error = false; // tells if there is a bad cut
   enum position {hor=0, vert=1};
@@ -45,10 +27,15 @@ struct EdgeProperties{
   bool error;
   EdgeProperties(Index index_) : index(index_) {};
 };
+
+struct VertexProperties{
+  int segment;
+};
+
 // create a typedef for the Graph type
-typedef b::adjacency_list<b::vecS, b::vecS, b::undirectedS> Graph; // watch out that we have unique edges
-typedef b::adjacency_list<b::vecS, b::vecS, b::undirectedS, b::no_property, EdgeProperties> Grid;
-//typedef b::property_map<Graph, b::vertex_index_t>::type IndexMap;
+typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS> Graph; // watch out that we have unique edges
+typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS, VertexProperties, EdgeProperties> Grid;
+//typedef boost::property_map<Graph, boost::vertex_index_t>::type IndexMap;
 
 template <typename VertexIterator>
 VertexIterator xy_to_iterator(int x, int y, VertexIterator v) {
@@ -57,30 +44,28 @@ VertexIterator xy_to_iterator(int x, int y, VertexIterator v) {
   return v;
 };
 
-int xy_to_index(int x, int y) {
+inline int xy_to_index(int x, int y) {
   assert(abs(x) <= size.x && abs(y) <= size.y);
   return x + y*size.x;
 };
-bg::point2<int> index_to_xy(int index) {
+
+inline boost::gil::point2<int> index_to_xy(int index) {
   int x = index % size.x;
   int y = index / size.x;
-  return bg::point2<int>(x, y);
+  return boost::gil::point2<int>(x, y);
 };
 //xEdges and yEdges indices functions
-int x_index(int x, int y) {return x+(size.x-1)*y;}
-int y_index(int x, int y) {return y+(size.y-1)*x;}
+// int x_index(int x, int y) {return x+(size.x-1)*y;}
+// int y_index(int x, int y) {return y+(size.y-1)*x;}
 
-typedef bg::rgb8_view_t view_t;
-typedef bg::rgb8c_view_t cview_t;
-typedef bg::rgb8_pixel_t pixel_t;
+typedef boost::gil::rgb8_view_t view_t;
+typedef boost::gil::rgb8c_view_t cview_t;
+typedef boost::gil::rgb8_pixel_t pixel_t;
 
 typedef double scalar_t;
-
-cview_t src;
-view_t dst;
-const int VDIM = bg::num_channels<pixel_t>::value; // 3 for rgb, 1 for greyscale
-const scalar_t CHANNEL_DIST = (scalar_t)bg::channel_traits<bg::channel_type<pixel_t>::type>::max_value() - bg::channel_traits<bg::channel_type<pixel_t>::type>::min_value();
-
+//these are used implicitely internally linked
+const int VDIM = boost::gil::num_channels<pixel_t>::value; // 3 for rgb, 1 for greyscale
+const scalar_t CHANNEL_DIST = (scalar_t)boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::max_value() - boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::min_value();
 typedef std::array<scalar_t, VDIM> vector_t;
 
 template <typename Vector, typename Scalar>
@@ -118,3 +103,4 @@ Scalar norm(Vector v) {
   std::for_each(help.begin(), help.end(), [&sum](Scalar u){sum += u;});
   return sqrt(sum);
 }
+#endif

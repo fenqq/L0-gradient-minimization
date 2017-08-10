@@ -1,15 +1,18 @@
-datei                grb heu debug  lambda  time
----------------------------------------------------
-easy_test.png        on      yes    0.08   6.4s
-baum-mit-kugeln.jpg  on      yes    0.08   inf
-simple.png           on      yes    0.25>   7s  (zero output)
-simple.png           on      yes    0.21   98s wierd output
-simple.png           on      yes    0.205   116s same wierd output as 0.21
-simple.png           on      yes    0.2    673s
-simple.png           on      yes    0.007    130s
-simple.png           on      yes    0.1    inf
+datei             size        grb heu  lambda  time  segments
+-------------------------------------------------------------
+very_simple.png   256x256     on       0.25    7.2   7
+mango.jpg         48x48       off      0.1     2.2s  179
+mango.jpg         48x48       off      0.2     2.3s  58
+mango.jpg         48x48       off      0.35    3.3s  5
+mango.jpg         48x48       on       0.35    4.2s  5
+mango.jpg         48x48       off      0.375   32.2s 4
+mango.jpg         48x48       on       0.375   37.2s 4
+mango.jpg         48x48       on       0.4     1198s 3
+mango.jpg         48x48       off      0.45    18.1s 2
+mango.jpg         48x48       on       0.45    8.1s  2
+mango.jpg         48x48       off      0.5>    2.2s  1
+modern_art.png    512x512     on       0.1<    inf   ?
+modern_art.png    512x512     on       0.2     195s  21
+modern_art.png    512x512     on       0.3>    8s    1
 
-if penalty lambda is high then no cuts is the right solution and we get the solution quickly
-if lambda is low than there are usually many cuts, so chances are we find alot of bad ones, but since the graph is much smaller, after a few rounds
-alls constraints are added.
-if lambda is just right (0.2 for simple.png) we get only a few cuts, and when they are bad, we would need to add huge amount of constraints
+for difficult.jpg, modern_art.png and big_elephant.jpg the algorithm takes way to much time
