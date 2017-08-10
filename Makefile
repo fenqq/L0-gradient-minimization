@@ -16,6 +16,9 @@ multicut: main.o callback.o
 main.o: main.cpp graph.h
 	$(CPP) $(CARGS) -I$(BOOST) -I$(GUROBI)/include -c main.cpp
 
+SLIC.o: SLIC/SLIC.cpp SLIC/SLIC.h
+	$(CPP) $(CARGS) -I$(BOOST) -I$(SLIC) -o SLIC/SLIC.o -c SLIC/SLIC.cpp
+
 callback.o: callback.cpp callback.h graph.h
 	$(CPP) $(CARGS) -I$(BOOST) -I$(GUROBI)/include -c callback.cpp
 

@@ -21,12 +21,14 @@
 // Email: firstname.lastname@epfl.ch
 //===========================================================================
 
-#include "stdafx.h"
 #include <cfloat>
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <cassert>
 #include "SLIC.h"
+
+using namespace std;
 
 // For superpixels
 const int dx4[4] = {-1,  0,  1,  0};
@@ -374,7 +376,7 @@ void SLIC::PerturbSeeds(
 {
 	const int dx8[8] = {-1, -1,  0,  1, 1, 1, 0, -1};
 	const int dy8[8] = { 0, -1, -1, -1, 0, 1, 1,  1};
-	
+
 	int numseeds = kseedsl.size();
 
 	for( int n = 0; n < numseeds; n++ )
@@ -457,7 +459,7 @@ void SLIC::GetLABXYSeeds_ForGivenStepSize(
 		{
 			int xe = x*xerrperstrip;
 			int i = (y*STEP+yoff+ye)*m_width + (x*STEP+xoff+xe);
-			
+
 			kseedsl[n] = m_lvec[i];
 			kseedsa[n] = m_avec[i];
 			kseedsb[n] = m_bvec[i];
@@ -467,7 +469,7 @@ void SLIC::GetLABXYSeeds_ForGivenStepSize(
 		}
 	}
 
-	
+
 	if(perturbseeds)
 	{
 		PerturbSeeds(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, edgemag);
@@ -494,7 +496,7 @@ void SLIC::GetLABXYSeeds_ForGivenK(
 	int T = step;
 	int xoff = step/2;
 	int yoff = step/2;
-	
+
 	int n(0);int r(0);
 	for( int y = 0; y < m_height; y++ )
 	{
@@ -510,7 +512,7 @@ void SLIC::GetLABXYSeeds_ForGivenK(
 			int i = Y*m_width + X;
 
 			//_ASSERT(n < K);
-			
+
 			//kseedsl[n] = m_lvec[i];
 			//kseedsa[n] = m_avec[i];
 			//kseedsb[n] = m_bvec[i];
@@ -596,17 +598,17 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		distvec.assign(sz, DBL_MAX);
 		for( int n = 0; n < numk; n++ )
 		{
-			int y1 = max(0,			kseedsy[n]-offset);
-			int y2 = min(m_height,	kseedsy[n]+offset);
-			int x1 = max(0,			kseedsx[n]-offset);
-			int x2 = min(m_width,	kseedsx[n]+offset);
+			int y1 = max<size_t>(0,			kseedsy[n]-offset);
+			int y2 = min<size_t>(m_height,	kseedsy[n]+offset);
+			int x1 = max<size_t>(0,			kseedsx[n]-offset);
+			int x2 = min<size_t>(m_width,	kseedsx[n]+offset);
 
 			for( int y = y1; y < y2; y++ )
 			{
 				for( int x = x1; x < x2; x++ )
 				{
 					int i = y*m_width + x;
-					_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
+					assert( y < m_height && x < m_width && y >= 0 && x >= 0 );
 
 					double l = m_lvec[i];
 					double a = m_avec[i];
@@ -623,7 +625,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 					double dist = distlab[i]/maxlab[n] + distxy[i]*invxywt;//only varying m, prettier superpixels
 					//double dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
 					//------------------------------------------------------------------------
-					
+
 					if( dist < distvec[i] )
 					{
 						distvec[i] = dist;
@@ -658,7 +660,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		for( int j = 0; j < sz; j++ )
 		{
 			int temp = klabels[j];
-			_ASSERT(klabels[j] >= 0);
+			assert(klabels[j] >= 0);
 			sigmal[klabels[j]] += m_lvec[j];
 			sigmaa[klabels[j]] += m_avec[j];
 			sigmab[klabels[j]] += m_bvec[j];
@@ -674,7 +676,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			if( clustersize[k] <= 0 ) clustersize[k] = 1;
 			inv[k] = 1.0/double(clustersize[k]);//computing inverse now to multiply, than divide later
 		}}
-		
+
 		{for( int k = 0; k < numk; k++ )
 		{
 			kseedsl[k] = sigmal[k]*inv[k];
@@ -696,14 +698,16 @@ void SLIC::SaveSuperpixelLabels(
 	const int&					width,
 	const int&					height,
 	const string&				filename,
-	const string&				path) 
+	const string&				path)
 {
 	int sz = width*height;
 
-	char fname[_MAX_FNAME];
-	char extn[_MAX_FNAME];
-	_splitpath(filename.c_str(), NULL, NULL, fname, extn);
-	string temp = fname;
+	//char fname[_MAX_FNAME];
+	// char extn[_MAX_FNAME]; // not used
+	//_splitpath(filename.c_str(), NULL, NULL, fname, NULL);
+	int pos = filename.find_last_of("/\\");
+	// path = filename.substr(0, pos);
+	string temp = filename.substr(pos+1);
 
 	ofstream outfile;
 	string finalpath = path + temp + string(".dat");
