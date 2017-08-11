@@ -95,19 +95,18 @@ int main(int argc, char* const argv[])
 	}
 
 	std::cout << "starting slic..." << std::endl;
-	int slic_number_of_superpixels = 5;//Desired number of superpixels.
-	double slic_compactness = 30;//Compactness factor. use a value ranging from 10 to 40 depending on your needs. Default is 10
+	int slic_number_of_superpixels = std::stoi(argv[2]);//Desired number of superpixels.
+	double slic_compactness = std::stod(argv[3]);//Compactness factor. use a value ranging from 10 to 40 depending on your needs. Default is 10
 	int* slic_labels = new int[size.x*size.y];
 	int slic_numlabels(0);
 	SLIC slic;
 	slic.PerformSLICO_ForGivenK(slic_pixel_data, size.x, size.y, slic_labels, slic_numlabels, slic_number_of_superpixels, slic_compactness);
 
 	slic.DrawContoursAroundSegments(slic_pixel_data, slic_labels, size.x, size.y, 0x00ff0000);
-	printf("%x", (uint32_t)(0x000000ab<<8));
+
 	for (int x = 0; x < size.x; ++x) {
 		for (int y = 0; y < size.y; ++y) {
 			uint32_t data = slic_pixel_data[xy_to_index(x, y)];
-
 
 			bg::get_color(dst(x,y), bg::blue_t()) = 0xff & data;
 			data >>= 8;
