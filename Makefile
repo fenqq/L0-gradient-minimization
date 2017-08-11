@@ -4,6 +4,7 @@ BOOST    = /usr/include/boost
 SLIC     = ./SLIC
 STANDARD = /usr/lib/x86_64-linux-gnu/
 CPP      = g++-4.9
+CPP2     = g++
 CARGS    = -std=c++11
 CPPLIB   = -lgurobi_c++ -lgurobi70 -lpng -ljpeg
 
@@ -24,3 +25,6 @@ callback.o: callback.cpp callback.h graph.h
 
 run:
 	./bin/multicut $(ARGS)
+
+slictest: slictest.cpp graph.h
+	$(CPP) $(CARGS) -L$(STANDARD) -L$(GUROBI)/lib -I$(BOOST) -I$(SLIC) -I$(GUROBI)/include slictest.cpp SLIC/SLIC.cpp $(CPPLIB) -o bin/slic_test

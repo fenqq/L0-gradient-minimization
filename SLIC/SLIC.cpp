@@ -598,10 +598,10 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		distvec.assign(sz, DBL_MAX);
 		for( int n = 0; n < numk; n++ )
 		{
-			int y1 = max<size_t>(0,			kseedsy[n]-offset);
-			int y2 = min<size_t>(m_height,	kseedsy[n]+offset);
-			int x1 = max<size_t>(0,			kseedsx[n]-offset);
-			int x2 = min<size_t>(m_width,	kseedsx[n]+offset);
+			int y1 = max<double>(0,			kseedsy[n]-offset);
+			int y2 = min<double>(m_height,	kseedsy[n]+offset);
+			int x1 = max<double>(0,			kseedsx[n]-offset);
+			int x2 = min<double>(m_width,	kseedsx[n]+offset);
 
 			for( int y = y1; y < y2; y++ )
 			{
@@ -892,10 +892,12 @@ void SLIC::PerformSLICO_ForGivenK(
 	m_width  = width;
 	m_height = height;
 	int sz = m_width*m_height;
+
 	//--------------------------------------------------
 	//if(0 == klabels) klabels = new int[sz];
 	for( int s = 0; s < sz; s++ ) klabels[s] = -1;
 	//--------------------------------------------------
+
 	if(1)//LAB
 	{
 		DoRGBtoLABConversion(ubuff, m_lvec, m_avec, m_bvec);
@@ -919,9 +921,9 @@ void SLIC::PerformSLICO_ForGivenK(
 
 	int STEP = sqrt(double(sz)/double(K)) + 2.0;//adding a small value in the even the STEP size is too small.
 	//PerformSuperpixelSLIC(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, klabels, STEP, edgemag, m);
+
 	PerformSuperpixelSegmentation_VariableSandM(kseedsl,kseedsa,kseedsb,kseedsx,kseedsy,klabels,STEP,10);
 	numlabels = kseedsl.size();
-
 	int* nlabels = new int[sz];
 	EnforceLabelConnectivity(klabels, m_width, m_height, nlabels, numlabels, K);
 	{for(int i = 0; i < sz; i++ ) klabels[i] = nlabels[i];}

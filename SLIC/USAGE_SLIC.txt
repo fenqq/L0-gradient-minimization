@@ -31,7 +31,7 @@ int main()
 	//----------------------------------
 	int k = 200;//Desired number of superpixels.
 	double m = 20;//Compactness factor. use a value ranging from 10 to 40 depending on your needs. Default is 10
-	int* klabels = NULL;
+	int* klabels = NULL; YOU HAVE TO MAKE iT BS!!!!!
 	int numlabels(0);
 	string filename = "yourfilename.jpg";
 	string savepath = "yourpathname";
@@ -63,5 +63,3 @@ int main()
 }
 
 As a disclaimer, the author of the code or EPFL are not responsible for any damages that may result from using this code or the compiled executable. There are no warraties associated with the code or executables.
-
-

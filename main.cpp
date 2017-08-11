@@ -270,7 +270,7 @@ int main(int argc, char const *argv[]) {
     }
     model_ref = NULL;
 
-    std::cout << "solution: " << model.get(GRB_DoubleAttr_ObjVal) << std::endl;
+    std::cout << "objective value: " << model.get(GRB_DoubleAttr_ObjVal) << std::endl;
 
     // check if solution is correct
     // build new graph but only with edges, if there is no cutting edge in the grid (so if sol = 0)
@@ -304,7 +304,7 @@ int main(int argc, char const *argv[]) {
       for(int y = 0; y < size.y; ++y) {
         if(std::abs(grid[b::edge(xy_to_index(x, y), xy_to_index(x+1,y), grid).first].var.get(GRB_DoubleAttr_X) - 1.0) < EPS) {
           for(int j = 0; j < VDIM; ++j) {
-              dst(x, y)[j] = black[j]; // links
+              dst(x, y)[j] = black[j]; // left
               //dst(x+1, y)[j] = black[j];
           }
         }
@@ -315,13 +315,15 @@ int main(int argc, char const *argv[]) {
         if(std::abs(grid[b::edge(xy_to_index(x, y), xy_to_index(x,y+1), grid).first].var.get(GRB_DoubleAttr_X) - 1.0) < EPS) {
           for(int j = 0; j < VDIM; ++j) {
               //dst(x, y)[j] = black[j];
-              dst(x, y+1)[j] = black[j]; // unten
+              dst(x, y+1)[j] = black[j]; // down
           }
         }
       }
     }
-
-    bg::png_write_view(image_file_name+"_contours"+"."+image_file_type, bg::const_view(dst_img));
+    if(image_file_type == "jpg" || image_file_type == "jpeg")
+      bg::jpeg_write_view(image_file_name+"_slic_contours"+"."+image_file_type, bg::const_view(dst_img));
+    else if(image_file_type == "png")
+      bg::png_write_view(image_file_name+"_contours"+"."+image_file_type, bg::const_view(dst_img));
 
     //segments out
     std::ofstream segment_file;
