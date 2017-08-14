@@ -18,69 +18,16 @@
 #include "gurobi_c++.h"
 
 #include "graph.h"
-
+#include "image.h"
 #include "callback.h"
-
 #include "SLIC/SLIC.h"
 
+#define EPS 0.000001
+// global picture size
+boost::gil::point2<int> size;
 
 namespace b = boost;
 namespace bg = b::gil;
-
-#define EPS 0.000001
-
-//#define DEBUG
-
-typedef boost::gil::rgb8_view_t  view_t;
-typedef boost::gil::rgb8c_view_t cview_t;
-typedef boost::gil::rgb8_pixel_t pixel_t;
-typedef boost::gil::rgb8_image_t image_t;
-
-typedef double scalar_t;
-int VDIM = 3;
-scalar_t CHANNEL_DIST = (scalar_t)boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::max_value() - boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::min_value();
-typedef std::array<scalar_t, 1> vector1_t;
-typedef std::array<scalar_t, 3> vector3_t;
-
-
-template <typename Vector, typename Scalar>
-Vector scalar_mult(Scalar s, Vector v) {
-  Vector out;
-  std::transform(v.begin(), v.end(), out.begin(),
-                 [s](Scalar v_i) { return s*v_i; });
-  return out;
-}
-
-template <typename Vector, typename Scalar>
-Vector addition(Vector v1, Vector v2) {
-  Vector out;
-  std::transform(v1.begin(), v1.end(), v2.begin(), out.begin(),
-                 [](Scalar v1_i, Scalar v2_i) { return v1_i+v2_i; });
-  return out;
-}
-
-template <typename Vector, typename Scalar>
-Vector subtraction(Vector v1, Vector v2) {
-  Vector out;
-  std::transform(v1.begin(), v1.end(), v2.begin(), out.begin(),
-                 [](Scalar v1_i, Scalar v2_i) { return v1_i-v2_i; });
-  return out;
-}
-
-template <typename Vector, typename Scalar>
-Scalar norm(Vector v) {
-  Vector help;
-  std::transform(v.begin(), v.end(), help.begin(),
-                 [](Scalar v_i) { return v_i*v_i; });
-
-  //std::reduce(out.begin(), out.end(), 0, std::plus<>());
-  Scalar sum(0);
-  std::for_each(help.begin(), help.end(), [&sum](Scalar u){sum += u;});
-  return sqrt(sum);
-}
-
-// global picture size
-boost::gil::point2<int> size;
 
 cview_t src;
 view_t dst;
