@@ -1,18 +1,9 @@
-datei             size        grb heu  lambda  time  segments
--------------------------------------------------------------
-very_simple.png   256x256     on       0.25    7.2   7
-mango.jpg         48x48       off      0.1     2.2s  179
-mango.jpg         48x48       off      0.2     2.3s  58
-mango.jpg         48x48       off      0.35    3.3s  5
-mango.jpg         48x48       on       0.35    4.2s  5
-mango.jpg         48x48       off      0.375   32.2s 4
-mango.jpg         48x48       on       0.375   37.2s 4
-mango.jpg         48x48       on       0.4     1198s 3
-mango.jpg         48x48       off      0.45    18.1s 2
-mango.jpg         48x48       on       0.45    8.1s  2
-mango.jpg         48x48       off      0.5>    2.2s  1
-modern_art.png    512x512     on       0.1<    inf   ?
-modern_art.png    512x512     on       0.2     195s  21
-modern_art.png    512x512     on       0.3>    8s    1
+datei             size      superpixels compactness grb heu  lambda  time  segments
+------------------------------------------------------------------------------------
+difficult.jpg     256x256   4000        20          1        0.1235  27.2s 550
+difficult.jpg     256x256   2000        10          1        0.13    14.9s 270 nicest result
+difficult.jpg     256x256   2000        10          1        0.16    38.0s 213
+difficult.jpg     256x256   4000        10          1        0.2     38.3s 250
 
-for difficult.jpg, modern_art.png and big_elephant.jpg the algorithm takes way to much time
+big_elephant.jpg  1435x935  2000        100         1        0.053   18.5S 134
+big_elephant.jpg  1435x935  500         100         1        0.06    8.8 32 ok result

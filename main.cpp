@@ -21,7 +21,7 @@
 
 #include "callback.h"
 
-
+#include "SLIC/SLIC.h"
 
 
 namespace b = boost;
@@ -30,6 +30,54 @@ namespace bg = b::gil;
 #define EPS 0.000001
 
 //#define DEBUG
+
+typedef boost::gil::rgb8_view_t  view_t;
+typedef boost::gil::rgb8c_view_t cview_t;
+typedef boost::gil::rgb8_pixel_t pixel_t;
+typedef boost::gil::rgb8_image_t image_t;
+
+typedef double scalar_t;
+int VDIM = 3;
+scalar_t CHANNEL_DIST = (scalar_t)boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::max_value() - boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::min_value();
+typedef std::array<scalar_t, 1> vector1_t;
+typedef std::array<scalar_t, 3> vector3_t;
+
+
+template <typename Vector, typename Scalar>
+Vector scalar_mult(Scalar s, Vector v) {
+  Vector out;
+  std::transform(v.begin(), v.end(), out.begin(),
+                 [s](Scalar v_i) { return s*v_i; });
+  return out;
+}
+
+template <typename Vector, typename Scalar>
+Vector addition(Vector v1, Vector v2) {
+  Vector out;
+  std::transform(v1.begin(), v1.end(), v2.begin(), out.begin(),
+                 [](Scalar v1_i, Scalar v2_i) { return v1_i+v2_i; });
+  return out;
+}
+
+template <typename Vector, typename Scalar>
+Vector subtraction(Vector v1, Vector v2) {
+  Vector out;
+  std::transform(v1.begin(), v1.end(), v2.begin(), out.begin(),
+                 [](Scalar v1_i, Scalar v2_i) { return v1_i-v2_i; });
+  return out;
+}
+
+template <typename Vector, typename Scalar>
+Scalar norm(Vector v) {
+  Vector help;
+  std::transform(v.begin(), v.end(), help.begin(),
+                 [](Scalar v_i) { return v_i*v_i; });
+
+  //std::reduce(out.begin(), out.end(), 0, std::plus<>());
+  Scalar sum(0);
+  std::for_each(help.begin(), help.end(), [&sum](Scalar u){sum += u;});
+  return sqrt(sum);
+}
 
 // global picture size
 boost::gil::point2<int> size;
@@ -60,29 +108,48 @@ int main(int argc, char const *argv[]) {
   sigIntHandler.sa_flags = 0;
   sigaction(SIGINT, &sigIntHandler, NULL);
 
+
+  if (argc < 2) {
+    //usage:
+    std::cout << "usage: " << std::endl;
+    std::cout << "multicut [flags] image_file" << std::endl;
+    std::cout << "--jpg (--jpeg), --png (default: uses file ending): explicitly set image file type" << std::endl;
+    std::cout << "--lambda (-l) [0 to 1] (default 0.3): the global lambda variable" << std::endl;
+    std::cout << "--grb_heuristic [0 or 1] (default 1): set gurobi heuristic algorithm on/off" << std::endl;
+    std::cout << "--superpixels (-s) [int] (default 1000): the number of superpixels used" << std::endl;
+    std::cout << "--superpixel-compactness (-m) [10 - 40] (default 29): the compactness of the superpixels" << std::endl;
+    std::cout << "--draw-superpixels [0 or 1] (default 0): draw superpixelpixels on image or not" << std::endl;
+    std::cout << "--disallow-one-pixel-segments [0 or 1] (default 0): if set to 1 will add constraints so that no one pixel sized segments will be in the result" << std::endl;
+
+    error_and_bye("missing image_file", -1);
+  }
+
   // arguments
   double lambda = 0.3;
-  double grb_heuristic = 0.0;
+  double grb_heuristic = 1.0;
+  int slic_number_of_superpixels = 1000;
+  int slic_compactness = 20;
+  int slic_draw_superpixels = 0;
+  int disallow_one_pixel_segments = 0;
   std::string image_file_type = "";
   std::string image_file_name;
   std::string image_file_path(argv[argc-1]);
+  std::string pixel_type = "rgb"; // const
 
   std::string crop(image_file_path);
-  int pos = image_file_path.find_last_of('.');
-  if(pos != std::string::npos) {
-    image_file_type = image_file_path.substr(pos+1);
-    crop = image_file_path.substr(0, pos);
-  }
-  pos = image_file_path.find_last_of("/\\");
+
+  int pos = image_file_path.find_last_of("/\\");
   if(pos != std::string::npos)
-    image_file_name = crop.substr(pos+1);
+    crop = image_file_path.substr(pos+1);
   else
+    crop = image_file_path;
+  pos = crop.find_last_of('.');
+  if(pos != std::string::npos) {
+    image_file_type = crop.substr(pos+1);
+    image_file_name = crop.substr(0, pos);
+  } else
     image_file_name = crop;
-  if (argc < 2) {
-    //usage:
-    std::cout << "multicut [--jpg, --png] [-l lambda] image_file" << std::endl;
-    error_and_bye("missing image_file", -1);
-  }
+
   int i = 1;
   while(i < argc-1) {
     std::string arg(argv[i]);
@@ -94,9 +161,41 @@ int main(int argc, char const *argv[]) {
           error_and_bye("not enough parameters for option --lambda", -1);
         }
     }
-    if(arg == "--grb_heuristic") {
+    if(arg == "--grb-heuristic") {
         if(i+1 < argc) {
           grb_heuristic = (double)std::stoi(argv[++i]);
+          goto next_param;
+        } else {
+          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+        }
+    }
+    if(arg == "--superpixels" || arg == "-s") {
+        if(i+1 < argc) {
+          slic_number_of_superpixels = std::stoi(argv[++i]);
+          goto next_param;
+        } else {
+          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+        }
+    }
+    if(arg == "--superpixel-compactness" || arg == "-m") {
+        if(i+1 < argc) {
+          slic_compactness = (double)std::stod(argv[++i]);
+          goto next_param;
+        } else {
+          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+        }
+    }
+    if(arg == "--draw-superpixels") {
+        if(i+1 < argc) {
+          slic_draw_superpixels = std::stoi(argv[++i]);
+          goto next_param;
+        } else {
+          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+        }
+    }
+    if(arg == "--disallow-one-pixel-segments") {
+        if(i+1 < argc) {
+          disallow_one_pixel_segments = std::stoi(argv[++i]);
           goto next_param;
         } else {
           error_and_bye("not enough parameters for option --grb_heuristic", -1);
@@ -116,7 +215,7 @@ int main(int argc, char const *argv[]) {
     ++i;
   }
 
-  bg::rgb8_image_t src_img;
+  image_t src_img;
   std::cout << "get image..." << std::endl;
   if(image_file_type == "jpg" || image_file_type == "jpeg")
     bg::jpeg_read_image(image_file_path, src_img);
@@ -124,7 +223,7 @@ int main(int argc, char const *argv[]) {
     bg::png_read_image(image_file_path, src_img);
   else
     error_and_bye("unsupported image file type", -2);
-  bg::rgb8_image_t dst_img(src_img); // copy
+  image_t dst_img(src_img); // copy
   src = const_view(src_img);
 
   dst = view(dst_img);// global picture size
@@ -132,21 +231,59 @@ int main(int argc, char const *argv[]) {
   size.x = src.width();
   size.y = src.height();
 
-  Grid grid(size.x*size.y);
 
   //convert from pixel type:
-  std::vector<vector_t> pixels(b::num_vertices(grid));
+  std::vector<vector3_t> pixels(size.x*size.y);
   for(int y = 0; y < size.y; ++y) {
     for (int x = 0; x < size.x; ++x) {
-      int nc = VDIM;
+      int nc = 3;
       for (int i = 0; i < nc; ++i) {
         pixels[xy_to_index(x, y)][i] = (scalar_t)src(x,y)[i];
       }
     }
   }
 
+  // unsigned int (32 bits) to hold a pixel in ARGB format as follows:
+  // from left to right,
+  // the first 8 bits are for the alpha channel (and are ignored)
+  // the next 8 bits are for the red channel
+  // the next 8 bits are for the green channel
+  // the last 8 bits are for the blue channel
+  std::cout << "converting data" << std::endl;
+  uint32_t* slic_pixel_data = new uint32_t[size.x*size.y];// 64 bit problems?
+  for (int x = 0; x < size.x; ++x) {
+    for (int y = 0; y < size.y; ++y) {
+      uint32_t data = 0;
+      uint32_t red = bg::get_color(src(x,y), bg::red_t());
+      uint32_t green = bg::get_color(src(x,y), bg::green_t());
+      uint32_t blue = bg::get_color(src(x,y), bg::blue_t());
+
+      data |= 0xff;
+      data <<= 8;
+      data |= red;
+      data <<= 8;
+      data |= green;
+      data <<= 8;
+      data |= blue;
+      slic_pixel_data[xy_to_index(x, y)] = data;
+    }
+
+  }
+
+  std::cout << "starting slic..." << std::endl;
+	slic_number_of_superpixels = std::min(slic_number_of_superpixels, size.x*size.y / 5);//Desired number of superpixels.
+	//double slic_compactness; //Compactness factor. use a value ranging from 10 to 40 depending on your needs. Default is 10
+	int* slic_labels = new int[size.x*size.y];
+	int slic_numlabels(0);
+	SLIC slic;
+	slic.PerformSLICO_ForGivenK(slic_pixel_data, size.x, size.y, slic_labels, slic_numlabels, slic_number_of_superpixels, slic_compactness);
+
+
+
   try {
     std::cout << "Add variables, set objective..." << std::endl;
+    SuperpixelGraph graph(slic_numlabels);
+
     GRBEnv env = GRBEnv();
     GRBModel model = GRBModel(env);
 
@@ -158,58 +295,41 @@ int main(int argc, char const *argv[]) {
 
     // options
     //double lambda;
-    double* lambda_row = new double[size.y];
-    double* lambda_col = new double[size.x];
-    int* k_row = new int[size.y];
-    int* k_col = new int[size.x];
     // the lower lambda is the more cuts the more bad cuts the more lazy cuts we have to put in
     //lambda = std::stod(argv[1]);  // 0.2 should seperate for example (0,0,0) and (52(>51=255*0.2),0,0) ... for CHANNEL_DIST = 255 and VDIM = 3
     lambda *= CHANNEL_DIST*sqrt(VDIM); // ... since |vec| ranges from 0 to |(CHANNEL_DIST, ... , CHANNEL_DIST)[[VDIM times]]| = sqrt(VDIM)*CHANNEL_DIST
-    std::fill(lambda_row, lambda_row+size.y, 1.0);
-    std::fill(lambda_col, lambda_col+size.x, 1.0);
-    std::fill(k_row, k_row+size.y, std::numeric_limits<int>::max());
-    std::fill(k_col, k_col+size.x, std::numeric_limits<int>::max());
-    //std::fill(k_row, k_row+size.y, 5);
-    //std::fill(k_col, k_col+size.x, 5);
-    for(int i = 0; i < size.y; ++i) {
-      //lambda_row[i] = (1/sqrt(VDIM))*0.2*(i+10)/10; //
-      //k_row[i] = i+1;
-    }
-    for(int i = 0; i < size.x; ++i) {
-      //lambda_col[i] = (1/sqrt(VDIM))*0.2*(i+10)/10; //
-      //k_col[i] = i+1;
-    }
 
     GRBLinExpr obj1(0.0); // left side of term
     GRBLinExpr obj2(0.0); // right side of term
     GRBLinExpr objective(0.0);
+
     for(int y = 0; y < size.y; ++y) {
       for (int x = 0; x < size.x; ++x) {
-        // not needed
-        #if 0
-        if (y != 0)
-          if(rng() % 5 == 0)
-            add_edge(xy_to_index(x,y), xy_to_index(x,y-1), g);
-        if (x != 0)
-          if(rng() % 5 == 0)
-            add_edge(xy_to_index(x,y), xy_to_index(x-1,y), g);
-        #endif
-        if (y != size.y-1) {
-          // add_edge(..) and edge(..) returns an std::pair, with the second entry beeing a bool telling if the edge exists,
-          // and the first entry beeing the actual edge
-          Grid::edge_descriptor e = add_edge(xy_to_index(x,y), xy_to_index(x,y+1), EdgeProperties(EdgeProperties::Index(xy_to_index(x,y), EdgeProperties::hor)), grid).first;
-          //grid[e].error = false;
-          grid[e].var = model.addVar(0.0, 1.0, 0.0, GRB_BINARY, "edge");
-          obj2 += lambda_row[y]*grid[e].var;
-          obj1 += norm<vector_t, scalar_t>(subtraction<vector_t, scalar_t>(pixels[xy_to_index(x,y)], pixels[xy_to_index(x,y+1)]))*grid[e].var;
-        }
-        if (x != size.x-1) {
-          Grid::edge_descriptor e = add_edge(xy_to_index(x+1,y), xy_to_index(x,y), EdgeProperties(EdgeProperties::Index(xy_to_index(x,y), EdgeProperties::vert)), grid).first;
-          //grid[e].error = false;
-          grid[e].var = model.addVar(0.0, 1.0, 0.0, GRB_BINARY, "edge");
-          obj2 += lambda_col[x]*grid[e].var;
-          obj1 += norm<vector_t, scalar_t>(subtraction<vector_t, scalar_t>(pixels[xy_to_index(x,y)], pixels[xy_to_index(x+1,y)]))*grid[e].var;
+        if(x != size.x-1) {
+          int a = slic_labels[xy_to_index(x, y)] ;
+          int b = slic_labels[xy_to_index(x+1, y)];
+          if(a != b) {
+            auto e = b::add_edge(a, b, graph);
+            if(e.second) {
+              graph[e.first].var = model.addVar(0.0, 1.0, 0.0, GRB_BINARY, "edge");
+            }
+            obj2 += graph[e.first].var;
+            obj1 += norm<vector3_t, scalar_t>(subtraction<vector3_t, scalar_t>(pixels[xy_to_index(x,y)], pixels[xy_to_index(x+1,y)]))*graph[e.first].var;
 
+          }
+        }
+        if(y != size.y-1) {
+          int a = slic_labels[xy_to_index(x, y)] ;
+          int b = slic_labels[xy_to_index(x, y+1)];
+          if(a != b) {
+            auto e = b::add_edge(a, b, graph);
+            if(e.second) {
+              graph[e.first].var = model.addVar(0.0, 1.0, 0.0, GRB_BINARY, "edge");
+            }
+            obj2 += graph[e.first].var;
+            obj1 += norm<vector3_t, scalar_t>(subtraction<vector3_t, scalar_t>(pixels[xy_to_index(x,y)], pixels[xy_to_index(x,y+1)]))*graph[e.first].var;
+
+          }
         }
       }
     }
@@ -217,45 +337,39 @@ int main(int argc, char const *argv[]) {
     objective = obj1 - obj2;
     model.setObjective(objective, GRB_MAXIMIZE);
 
-    std::cout << "adding initial constraints..." << std::endl;
-    // set optional constraints on number of egdes
-    for(int y = 0; y < size.y; ++y) {
-      GRBLinExpr left(0.0);
-      for(int x = 0; x < (size.x-1); ++x) {
-        //std::cout << b::edge(xy_to_index(x, y), xy_to_index(x+1,y), grid).second << std::endl;
-        left += grid[b::edge(xy_to_index(x, y), xy_to_index(x+1,y), grid).first].var;
+    // disallow 1 pixel size segments?
+    if(disallow_one_pixel_segments) {
+      SuperpixelGraph::vertex_iterator vi, vi_end;
+      for(b::tie(vi, vi_end) = b::vertices(graph); vi != vi_end; ++vi) {
+        SuperpixelGraph::out_edge_iterator ei, ei_end;
+        GRBLinExpr sum_edges(0.0);
+        for(b::tie(ei, ei_end) = b::out_edges(*vi, graph); ei != ei_end; ++ei) {
+          sum_edges += graph[*ei].var;
+        }
+        model.addConstr(sum_edges <= (double)b::out_degree(*vi, graph)-1);
       }
-      model.addConstr(left <= k_row[y]);
     }
-
-    for(int x = 0; x < size.x; ++x) {
-      GRBLinExpr left(0.0);
-      for(int y = 0; y < (size.y-1); ++y) {
-        left += grid[b::edge(xy_to_index(x, y), xy_to_index(x,y+1), grid).first].var;
-      }
-      model.addConstr(left <= k_col[x]);
-    }
-
-    // THESE CONSTRAINTS ARE NOT ENOUGH
+  //  std::cout << "adding initial constraints..." << std::endl;
+  /*  // THESE CONSTRAINTS ARE NOT ENOUGH
     // only small squares cycles are considered in the beginning
     for(int x = 0; x < size.x-1; ++x) {
       for(int y = 0; y < size.y-1; ++y) {
         //a---b
         //|   |
         //d---c
-        GRBVar& a_b = grid[b::edge(xy_to_index(x, y), xy_to_index(x+1,y), grid).first].var;
-        GRBVar& b_c = grid[b::edge(xy_to_index(x+1, y), xy_to_index(x+1,y+1), grid).first].var;
-        GRBVar& c_d = grid[b::edge(xy_to_index(x, y+1), xy_to_index(x+1,y+1), grid).first].var;
-        GRBVar& d_a = grid[b::edge(xy_to_index(x, y+1), xy_to_index(x,y), grid).first].var;
+        GRBVar& a_b = graph[b::edge(xy_to_index(x, y), xy_to_index(x+1,y), graph).first].var;
+        GRBVar& b_c = graph[b::edge(xy_to_index(x+1, y), xy_to_index(x+1,y+1), graph).first].var;
+        GRBVar& c_d = graph[b::edge(xy_to_index(x, y+1), xy_to_index(x+1,y+1), graph).first].var;
+        GRBVar& d_a = graph[b::edge(xy_to_index(x, y+1), xy_to_index(x,y), graph).first].var;
         model.addConstr(a_b + b_c + c_d >= d_a);
         model.addConstr(b_c + c_d + d_a >= a_b);
         model.addConstr(c_d + d_a + a_b >= b_c);
         model.addConstr(d_a + a_b + b_c >= c_d);
       }
     }
-
+*/
     // set callback
-    myGRBCallback cb = myGRBCallback(grid);
+    myGRBCallback cb = myGRBCallback(graph);
     model.setCallback(&cb);
 
     // Optimize model
@@ -273,66 +387,84 @@ int main(int argc, char const *argv[]) {
     std::cout << "objective value: " << model.get(GRB_DoubleAttr_ObjVal) << std::endl;
 
     // check if solution is correct
-    // build new graph but only with edges, if there is no cutting edge in the grid (so if sol = 0)
-    Graph non_cuts(b::num_vertices(grid));
-    Grid::edge_iterator ei, ei_end;
-    for(b::tie(ei, ei_end) = b::edges(grid); ei != ei_end; ++ei) {
-      grid[*ei].error = false; // set to false
-      if(std::abs(grid[*ei].var.get(GRB_DoubleAttr_X) - 0.0) < EPS) {
-        Graph::vertex_descriptor src = source(*ei, grid), targ = target(*ei, grid);
+    // build new graph but only with edges, if there is no cutting edge in the graph (so if sol = 0)
+    Graph non_cuts(b::num_vertices(graph));
+    SuperpixelGraph::edge_iterator ei, ei_end;
+    for(b::tie(ei, ei_end) = b::edges(graph); ei != ei_end; ++ei) {
+      graph[*ei].error = false; // set to false
+      if(std::abs(graph[*ei].var.get(GRB_DoubleAttr_X) - 0.0) < EPS) {
+        Graph::vertex_descriptor src = source(*ei, graph), targ = target(*ei, graph);
         add_edge(src, targ, non_cuts);
       }
     }
 
-    int num_segments = find_segments(grid, non_cuts);
-    int num_bad_cuts = find_bad_cuts(grid, non_cuts);
+    int num_segments = find_segments(graph, non_cuts);
+    int num_bad_cuts = find_bad_cuts(graph, non_cuts);
     std::cout << "Calculated " << num_segments << " segments." << std::endl;
 
     if(num_bad_cuts > 0) {
       std::cout << "error: found bad cuts in result" << std::endl;
-      for(b::tie(ei, ei_end) = b::edges(grid); ei != ei_end; ++ei) {
-        if(grid[*ei].error) {
-          std::cout << "bad cut!: " << "edge at vertex: " << index_to_xy(grid[*ei].index.first).x << ", " << index_to_xy(grid[*ei].index.first).y << " position: " << grid[*ei].index.second << std::endl;
+      for(b::tie(ei, ei_end) = b::edges(graph); ei != ei_end; ++ei) {
+        if(graph[*ei].error) {
+          std::cout << "bad cut!" << std::endl;
         }
       }
     }
     std::cout << "building image..."  << std::endl;
-    vector_t black;
-    black.fill(0);
 
-    for(int x = 0; x < (size.x-1); ++x) {
-      for(int y = 0; y < size.y; ++y) {
-        if(std::abs(grid[b::edge(xy_to_index(x, y), xy_to_index(x+1,y), grid).first].var.get(GRB_DoubleAttr_X) - 1.0) < EPS) {
-          for(int j = 0; j < VDIM; ++j) {
-              dst(x, y)[j] = black[j]; // left
-              //dst(x+1, y)[j] = black[j];
-          }
-        }
-      }
-    }
+    if(slic_draw_superpixels)
+      slic.DrawContoursAroundSegments(slic_pixel_data, slic_labels, size.x, size.y, 0xff000000);
+
     for(int x = 0; x < size.x; ++x) {
-      for(int y = 0; y < (size.y-1); ++y) {
-        if(std::abs(grid[b::edge(xy_to_index(x, y), xy_to_index(x,y+1), grid).first].var.get(GRB_DoubleAttr_X) - 1.0) < EPS) {
-          for(int j = 0; j < VDIM; ++j) {
-              //dst(x, y)[j] = black[j];
-              dst(x, y+1)[j] = black[j]; // down
+      for(int y = 0; y < size.y; ++y) {
+        if(x != size.x-1) {
+          int a = slic_labels[xy_to_index(x,y)];
+          int b = slic_labels[xy_to_index(x+1,y)];
+          auto e = b::edge(a, b, graph);
+          if(a!=b && e.second) {
+            if (std::abs(graph[e.first].var.get(GRB_DoubleAttr_X) - 1.0) < EPS)
+              slic_pixel_data[xy_to_index(x,y)] = 0xffff0000;
+          }
+        }
+        if(y != size.y-1) {
+          int a = slic_labels[xy_to_index(x,y)];
+          int b = slic_labels[xy_to_index(x,y+1)];
+          auto e = b::edge(a, b, graph);
+          if(a!=b && e.second) {
+            if (std::abs(graph[e.first].var.get(GRB_DoubleAttr_X) - 1.0) < EPS)
+              slic_pixel_data[xy_to_index(x,y)] = 0xffff0000;
           }
         }
       }
     }
+
+    for (int x = 0; x < size.x; ++x) {
+      for (int y = 0; y < size.y; ++y) {
+        uint32_t data = slic_pixel_data[xy_to_index(x, y)];
+
+        bg::get_color(dst(x,y), bg::blue_t()) = 0xff & data;
+        data >>= 8;
+        bg::get_color(dst(x,y), bg::green_t()) = 0xff & data;
+        data >>= 8;
+        bg::get_color(dst(x,y), bg::red_t()) = 0xff & data;
+        data >>= 8;
+      }
+    }
+
     if(image_file_type == "jpg" || image_file_type == "jpeg")
-      bg::jpeg_write_view(image_file_name+"_slic_contours"+"."+image_file_type, bg::const_view(dst_img));
+      bg::jpeg_write_view(image_file_name+"_contours"+"."+image_file_type, bg::const_view(dst_img));
     else if(image_file_type == "png")
       bg::png_write_view(image_file_name+"_contours"+"."+image_file_type, bg::const_view(dst_img));
 
     //segments out
+    /*
     std::ofstream segment_file;
     segment_file.open (image_file_name+"_segments.txt");
     int width = 2;
-    Grid::vertex_iterator vi, vi_end;
-    b::tie(vi, vi_end) = b::vertices(grid);
+    SuperpixelGraph::vertex_iterator vi, vi_end;
+    b::tie(vi, vi_end) = b::vertices(graph);
     for(auto it = vi; it != vi_end; ++it) {
-      int seg = grid[*it].segment;
+      int seg = graph[*it].segment;
       int width_;
       if(seg != 0 && (width_ = floor(log10(seg)) + 2) > width)
         width = (int)width_;
@@ -340,25 +472,25 @@ int main(int argc, char const *argv[]) {
 
     for(int y = 0; y < size.y; ++y) {
       for (int x = 0; x < size.x-1; ++x) {
-        Grid::edge_descriptor e = b::edge(xy_to_index(x+1,y), xy_to_index(x,y), grid).first;
-        if(std::abs(grid[e].var.get(GRB_DoubleAttr_X) - 1.0) < EPS)
-          segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>('-')) << grid[xy_to_index(x,y)].segment;
+        SuperpixelGraph::edge_descriptor e = b::edge(xy_to_index(x+1,y), xy_to_index(x,y), graph).first;
+        if(std::abs(graph[e].var.get(GRB_DoubleAttr_X) - 1.0) < EPS)
+          segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>('-')) << graph[xy_to_index(x,y)].segment;
         else
-          segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>(' ')) << grid[xy_to_index(x,y)].segment;
+          segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>(' ')) << graph[xy_to_index(x,y)].segment;
       }
-      segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>(' ')) << grid[xy_to_index(size.x-1, y)].segment;
+      segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>(' ')) << graph[xy_to_index(size.x-1, y)].segment;
       segment_file << std::endl;
       if (y != size.y-1) {
         for (int x = 0; x < size.x; ++x) {
-          Grid::edge_descriptor e = b::edge(xy_to_index(x,y), xy_to_index(x,y+1), grid).first;
-          if(std::abs(grid[e].var.get(GRB_DoubleAttr_X) - 1.0) < EPS)
+          SuperpixelGraph::edge_descriptor e = b::edge(xy_to_index(x,y), xy_to_index(x,y+1), graph).first;
+          if(std::abs(graph[e].var.get(GRB_DoubleAttr_X) - 1.0) < EPS)
             segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>(' ')) << '|';
           else
             segment_file << std::setw(width) << std::left << std::setfill(static_cast<char>(' ')) << ' ';
         }
       }
       segment_file << std::endl;
-    }
+    }*/
 
   } catch(GRBException e) {
     std::cout << "Error code = " << e.getErrorCode() << std::endl;

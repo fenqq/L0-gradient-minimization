@@ -4,15 +4,15 @@
 
 enum Color {white, grey, black};
 
-int find_segments(Grid& grid, Graph& non_cuts);
-int find_bad_cuts(Grid& grid, Graph& non_cuts);
+int find_segments(SuperpixelGraph& graph, Graph& non_cuts);
+int find_bad_cuts(SuperpixelGraph& graph, Graph& non_cuts);
 
 class myGRBCallback: public GRBCallback
 {
   public:
-    Grid& grid;
+    SuperpixelGraph& graph;
 
-    myGRBCallback(Grid& grid_) : grid(grid_) {};
+    myGRBCallback(SuperpixelGraph& graph_) : graph(graph_) {};
   protected:
     void callback ();
 
