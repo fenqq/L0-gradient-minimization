@@ -13,19 +13,18 @@
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/copy.hpp>
 
+#include <array>
 
 typedef boost::gil::rgb8_view_t  view_t;
 typedef boost::gil::rgb8c_view_t cview_t;
 typedef boost::gil::rgb8_pixel_t pixel_t;
 typedef boost::gil::rgb8_image_t image_t;
 
-typedef double scalar_t;
 int VDIM = 3;
-scalar_t CHANNEL_DIST = (scalar_t)boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::max_value() - boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::min_value();
-typedef std::array<scalar_t, 1> vector1_t;
-typedef std::array<scalar_t, 3> vector3_t;
+int CHANNEL_DIST = boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::max_value() - boost::gil::channel_traits<boost::gil::channel_type<pixel_t>::type>::min_value();
 
 
+/*
 template <typename Vector, typename Scalar>
 Vector scalar_mult(Scalar s, Vector v) {
   Vector out;
@@ -60,6 +59,7 @@ Scalar norm(Vector v) {
   Scalar sum(0);
   std::for_each(help.begin(), help.end(), [&sum](Scalar u){sum += u;});
   return sqrt(sum);
-}
+}*/
+
 
 #endif

@@ -29,7 +29,7 @@ void myGRBCallback::callback() {
           add_edge(src, targ, non_cuts);
         }
       }
-      
+
       find_segments(graph, non_cuts);
       find_bad_cuts(graph, non_cuts);
 

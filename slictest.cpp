@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include "graph.h"
+#include "image.h"
 #include "SLIC/SLIC.h"
 
 
@@ -66,7 +67,7 @@ int main(int argc, char* const argv[])
 	size.x = src.width();
 	size.y = src.height();
 	//printf("%b", src(0,0));
-	Grid grid(size.x*size.y);
+	SuperpixelGraph grid(size.x*size.y);
 	// unsigned int (32 bits) to hold a pixel in ARGB format as follows:
 	// from left to right,
 	// the first 8 bits are for the alpha channel (and are ignored)

@@ -9,22 +9,26 @@
 #include <boost/gil/extension/io/jpeg_dynamic_io.hpp>
 
 #include <boost/utility.hpp>                // for boost::tie
+#include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/copy.hpp>
 
 #include "gurobi_c++.h"
 
+#include "math_vector.h"
+
 // global picture size
 extern boost::gil::point2<int> size;
 
 struct EdgeProperties{
-  GRBVar var; 
+  GRBVar var;
   bool error;
 };
 
 struct VertexProperties{
   int multicut_label;
+  MathVector<scalar_t, vector3_t> value;
 };
 
 // create a typedef for the Graph type

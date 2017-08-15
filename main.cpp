@@ -17,8 +17,10 @@
 #include <unistd.h>
 #include "gurobi_c++.h"
 
+#include "l0_gradient_minimization.h"
 #include "graph.h"
 #include "image.h"
+#include "math_vector.h"
 #include "callback.h"
 #include "SLIC/SLIC.h"
 
@@ -261,8 +263,9 @@ int main(int argc, char const *argv[]) {
               graph[e.first].var = model.addVar(0.0, 1.0, 0.0, GRB_BINARY, "edge");
             }
             obj2 += graph[e.first].var;
-            obj1 += norm<vector3_t, scalar_t>(subtraction<vector3_t, scalar_t>(pixels[xy_to_index(x,y)], pixels[xy_to_index(x+1,y)]))*graph[e.first].var;
-
+            MathVector<scalar_t, vector3_t> v(pixels[xy_to_index(x,y)]);
+            MathVector<scalar_t, vector3_t> w(pixels[xy_to_index(x+1,y)]);
+            obj1 += (v-w).norm()*graph[e.first].var;
           }
         }
         if(y != size.y-1) {
@@ -274,7 +277,9 @@ int main(int argc, char const *argv[]) {
               graph[e.first].var = model.addVar(0.0, 1.0, 0.0, GRB_BINARY, "edge");
             }
             obj2 += graph[e.first].var;
-            obj1 += norm<vector3_t, scalar_t>(subtraction<vector3_t, scalar_t>(pixels[xy_to_index(x,y)], pixels[xy_to_index(x,y+1)]))*graph[e.first].var;
+            MathVector<scalar_t, vector3_t> v(pixels[xy_to_index(x,y)]);
+            MathVector<scalar_t, vector3_t> w(pixels[xy_to_index(x,y+1)]);
+            obj1 += (v-w).norm()*graph[e.first].var;
 
           }
         }
@@ -296,25 +301,31 @@ int main(int argc, char const *argv[]) {
         model.addConstr(sum_edges <= (double)b::out_degree(*vi, graph)-1);
       }
     }
-  //  std::cout << "adding initial constraints..." << std::endl;
-  /*  // THESE CONSTRAINTS ARE NOT ENOUGH
-    // only small squares cycles are considered in the beginning
-    for(int x = 0; x < size.x-1; ++x) {
-      for(int y = 0; y < size.y-1; ++y) {
-        //a---b
-        //|   |
-        //d---c
-        GRBVar& a_b = graph[b::edge(xy_to_index(x, y), xy_to_index(x+1,y), graph).first].var;
-        GRBVar& b_c = graph[b::edge(xy_to_index(x+1, y), xy_to_index(x+1,y+1), graph).first].var;
-        GRBVar& c_d = graph[b::edge(xy_to_index(x, y+1), xy_to_index(x+1,y+1), graph).first].var;
-        GRBVar& d_a = graph[b::edge(xy_to_index(x, y+1), xy_to_index(x,y), graph).first].var;
-        model.addConstr(a_b + b_c + c_d >= d_a);
-        model.addConstr(b_c + c_d + d_a >= a_b);
-        model.addConstr(c_d + d_a + a_b >= b_c);
-        model.addConstr(d_a + a_b + b_c >= c_d);
+    //  std::cout << "adding initial constraints..." << std::endl;
+    /*  // THESE CONSTRAINTS ARE NOT ENOUGH
+      // only small squares cycles are considered in the beginning
+      for(int x = 0; x < size.x-1; ++x) {
+        for(int y = 0; y < size.y-1; ++y) {
+          //a---b
+          //|   |
+          //d---c
+          GRBVar& a_b = graph[b::edge(xy_to_index(x, y), xy_to_index(x+1,y), graph).first].var;
+          GRBVar& b_c = graph[b::edge(xy_to_index(x+1, y), xy_to_index(x+1,y+1), graph).first].var;
+          GRBVar& c_d = graph[b::edge(xy_to_index(x, y+1), xy_to_index(x+1,y+1), graph).first].var;
+          GRBVar& d_a = graph[b::edge(xy_to_index(x, y+1), xy_to_index(x,y), graph).first].var;
+          model.addConstr(a_b + b_c + c_d >= d_a);
+          model.addConstr(b_c + c_d + d_a >= a_b);
+          model.addConstr(c_d + d_a + a_b >= b_c);
+          model.addConstr(d_a + a_b + b_c >= c_d);
+        }
       }
-    }
-*/
+    */
+    // make heuristic
+    /*for(int i = 0; i < slic_numlabels; ++i) {
+      graph[(SuperpixelGraph::vertex_descriptor)i].value = MathVector<scalar_t, vector3_t>(pixels[i]);
+    }*/
+    //SuperpixelGraph graph_copy = graph;
+    //l0_gradient_minimization<SuperpixelGraph, MathVector<scalar_t, vector3_t>>(graph_copy, lambda);
     // set callback
     myGRBCallback cb = myGRBCallback(graph);
     model.setCallback(&cb);
