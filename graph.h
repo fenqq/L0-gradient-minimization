@@ -21,20 +21,37 @@
 // global picture size
 extern boost::gil::point2<int> size;
 
-struct EdgeProperties{
+struct SuperpixelEdgeProperties{
   GRBVar var;
   bool error;
 };
 
-struct VertexProperties{
+struct SuperpixelVertexProperties{
   int multicut_label;
+};
+
+struct HeuristicEdgeProperties{
+  double cut;
+};
+
+struct HeuristicVertexProperties{
   MathVector<scalar_t, vector3_t> value;
 };
+
+struct do_nothing
+{
+  template <typename VertexOrEdge1, typename VertexOrEdge2>
+  void operator()(const VertexOrEdge1& , VertexOrEdge2& ) const
+  {
+  }
+}; // for copying
 
 // create a typedef for the Graph type
 // watch out that we have unique edges
 typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS> Graph; // used for finding bad Cuts
-typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS, VertexProperties, EdgeProperties> SuperpixelGraph; // Superpixel grid
+typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS, SuperpixelVertexProperties, SuperpixelEdgeProperties> SuperpixelGraph;
+typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS, HeuristicVertexProperties, HeuristicEdgeProperties> HeuristicGraph;
+
 //typedef boost::property_map<Graph, boost::vertex_index_t>::type IndexMap;
 
 template <typename VertexIterator>

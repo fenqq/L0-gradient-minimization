@@ -14,25 +14,16 @@
 #include <boost/graph/copy.hpp>
 
 
-/*struct group {
-  std::vector<int> elements;
-  std::set<int> neighbours;
-  std::map<int, int> number_of_connections;
-  int number_of_elements;
-  vector3_t average_value; // only RGB
-  group() : elements(1) {}
-};*/
-
 inline double non_linear_beta(int iter, int iteration_number, double lambda) {
   double gamma = 2.2;
   return pow((double)iter/(double) iteration_number, gamma)*lambda;
 }
 
-// performs l0_gradient_minimization by region fusion as described in
+// performs l0 gradient minimization as described in
 // Fast and Effective L0 Gradient Minimization by Region Fusion - by
 // Rang M. H. Nguyen
 // Michael S. Brownon
-// for a general Graph, which has to have 'vecS' as Vertices type ande a Vertex Property named 'value' of type Vector
+// for a general Graph, which has to have 'vecS'  as vertices type ande a vertex property named 'value' of type Vector
 // returns number of groups
 template <typename Graph, typename Vector>
 int l0_gradient_minimization(Graph& graph, double lambda) {
@@ -63,7 +54,7 @@ int l0_gradient_minimization(Graph& graph, double lambda) {
   int beta_iter = 0;
   int iteration_number = 100;
   do {
-    std::cout << "beta = " << beta << std::endl;
+    //std::cout << "beta = " << beta << std::endl;
     //for(auto i = 0; i < groups.size(); ++i) {
     for(int i = 0; i < boost::num_vertices(graph); ++i) {
       if(skipover[i])

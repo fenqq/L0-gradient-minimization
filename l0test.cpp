@@ -18,7 +18,7 @@
 
 #include "math_vector.h"
 #include "image.h"
-#include "graph.h"
+//#include "graph.h"
 
 #include "l0_gradient_minimization.h"
 
@@ -29,6 +29,17 @@ boost::gil::point2<int> size;
 
 cview_t src;
 view_t dst;
+
+struct VertexProperties{
+  MathVector<scalar_t, vector3_t> value;
+};
+
+typedef boost::adjacency_list<boost::setS, boost::vecS, boost::undirectedS, VertexProperties> Graph; // Superpixel grid
+
+inline int xy_to_index(int x, int y) {
+  assert(abs(x) <= size.x && abs(y) <= size.y);
+  return x + y*size.x;
+};
 
 int main(int argc, char const *argv[]) {
   bg::rgb8_image_t src_img;
@@ -45,7 +56,7 @@ int main(int argc, char const *argv[]) {
   //convert from pixel type:
   std::vector<vector3_t> pixels(size.x*size.y);
 
-  SuperpixelGraph graph(size.x*size.y);
+  Graph graph(size.x*size.y);
 
   for(int y = 0; y < size.y; ++y) {
     for (int x = 0; x < size.x; ++x) {
@@ -66,14 +77,14 @@ int main(int argc, char const *argv[]) {
       }
     }
   }
-  int num_segments = l0_gradient_minimization<SuperpixelGraph, MathVector<scalar_t, vector3_t>>(graph, 1000);
+  int num_segments = l0_gradient_minimization<Graph, MathVector<scalar_t, vector3_t>>(graph, 1000);
   std::cout << "number of segments: " << num_segments << std::endl;
 
   for(int y = 0; y < size.y; ++y) {
     for (int x = 0; x < size.x; ++x) {
       int nc = 3;
       for(int j = 0; j < nc; ++j) {
-        dst(x, y)[j] = graph[(SuperpixelGraph::vertex_descriptor)xy_to_index(x, y)].value[j];
+        dst(x, y)[j] = graph[(Graph::vertex_descriptor)xy_to_index(x, y)].value[j];
       }
     }
   }

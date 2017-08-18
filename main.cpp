@@ -80,6 +80,8 @@ int main(int argc, char const *argv[]) {
   int slic_compactness = 20;
   int slic_draw_superpixels = 0;
   int disallow_one_pixel_segments = 0;
+  int use_l0_heuristic = 1;
+
   std::string image_file_type = "";
   std::string image_file_name;
   std::string image_file_path(argv[argc-1]);
@@ -145,6 +147,14 @@ int main(int argc, char const *argv[]) {
     if(arg == "--disallow-one-pixel-segments") {
         if(i+1 < argc) {
           disallow_one_pixel_segments = std::stoi(argv[++i]);
+          goto next_param;
+        } else {
+          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+        }
+    }
+    if(arg == "--use-l0-heuristic") {
+        if(i+1 < argc) {
+          use_l0_heuristic = std::stoi(argv[++i]);
           goto next_param;
         } else {
           error_and_bye("not enough parameters for option --grb_heuristic", -1);
@@ -231,6 +241,7 @@ int main(int argc, char const *argv[]) {
 
   try {
     std::cout << "Add variables, set objective..." << std::endl;
+    //std::cout << slic_numlabels << " " << slic_number_of_superpixels << std::endl;
     SuperpixelGraph graph(slic_numlabels);
 
     GRBEnv env = GRBEnv();
@@ -246,7 +257,7 @@ int main(int argc, char const *argv[]) {
     //double lambda;
     // the lower lambda is the more cuts the more bad cuts the more lazy cuts we have to put in
     //lambda = std::stod(argv[1]);  // 0.2 should seperate for example (0,0,0) and (52(>51=255*0.2),0,0) ... for CHANNEL_DIST = 255 and VDIM = 3
-    lambda *= CHANNEL_DIST*sqrt(VDIM); // ... since |vec| ranges from 0 to |(CHANNEL_DIST, ... , CHANNEL_DIST)[[VDIM times]]| = sqrt(VDIM)*CHANNEL_DIST
+    // lambda *= CHANNEL_DIST*sqrt(VDIM); // ... since |vec| ranges from 0 to |(CHANNEL_DIST, ... , CHANNEL_DIST)[[VDIM times]]| = sqrt(VDIM)*CHANNEL_DIST
 
     GRBLinExpr obj1(0.0); // left side of term
     GRBLinExpr obj2(0.0); // right side of term
@@ -285,7 +296,7 @@ int main(int argc, char const *argv[]) {
         }
       }
     }
-    obj2 *= lambda;
+    obj2 *= lambda*CHANNEL_DIST*sqrt(VDIM);
     objective = obj1 - obj2;
     model.setObjective(objective, GRB_MAXIMIZE);
 
@@ -321,11 +332,64 @@ int main(int argc, char const *argv[]) {
       }
     */
     // make heuristic
-    /*for(int i = 0; i < slic_numlabels; ++i) {
-      graph[(SuperpixelGraph::vertex_descriptor)i].value = MathVector<scalar_t, vector3_t>(pixels[i]);
-    }*/
-    //SuperpixelGraph graph_copy = graph;
-    //l0_gradient_minimization<SuperpixelGraph, MathVector<scalar_t, vector3_t>>(graph_copy, lambda);
+    if( use_l0_heuristic ) {
+      std::cout << "performing l0 heuristic..." << std::endl;
+      HeuristicGraph graph_copy(0);
+      b::copy_graph(graph, graph_copy, b::vertex_copy(do_nothing()).edge_copy(do_nothing())); // doesn't copy vertex or edge properties
+      std::vector<int> count(slic_numlabels, 0);
+      for(int i = 0; i < slic_numlabels; ++i) {
+        vector3_t zero = {0.0, 0.0, 0.0};
+        graph_copy[(HeuristicGraph::vertex_descriptor)i].value = MathVector<scalar_t, vector3_t>(zero);
+      }
+      for(int x = 0; x < size.x; ++x) {
+        for(int y = 0; y < size.y; ++y) {
+          int a = slic_labels[xy_to_index(x,y)];
+          graph_copy[(HeuristicGraph::vertex_descriptor)a].value += MathVector<scalar_t, vector3_t>(pixels[xy_to_index(x,y)]);
+          count[a]++;
+        }
+      }
+      for(int i = 0; i < slic_numlabels; ++i) {
+        graph_copy[(HeuristicGraph::vertex_descriptor)i].value *= 1.0/(double)count[i];
+      }
+      //std::cout << b::num_vertices(graph_copy) << std::endl;
+
+      // fusion criterion is |Y_i - Y_j|^2 / 2 <= lambda
+      // so the term |Y_i-Y_j|^2 / 2 ranges from 0 to |(CHANNEL_DIST, ..., CHANNEL_DIST)[[VDIM times]]|^2 / 2
+      l0_gradient_minimization<HeuristicGraph, MathVector<scalar_t, vector3_t>>(graph_copy, lambda*VDIM*CHANNEL_DIST*CHANNEL_DIST*0.5 *1);
+      HeuristicGraph::vertex_iterator vi, vi_end;
+      for(b::tie(vi, vi_end) = b::vertices(graph_copy); vi != vi_end; ++vi){
+        HeuristicGraph::adjacency_iterator ai, ai_end;
+        for(b::tie(ai, ai_end) = b::adjacent_vertices(*vi, graph_copy); ai != ai_end; ++ai) {
+          //std::cout << b::edge((SuperpixelGraph::vertex_descriptor)*vi, (SuperpixelGraph::vertex_descriptor)*ai, graph).second << std::endl;
+          auto he = b::edge(*vi, *ai, graph_copy).first;
+          auto e = b::edge(*vi, *ai, graph).first;
+          if(graph_copy[*vi].value != graph_copy[*ai].value) {
+            graph_copy[he].cut = 1.0; // not necessary
+            graph[e].var.set(GRB_DoubleAttr_Start, 1.0); // set mip init feasible solution
+          } else {
+            graph_copy[he].cut = 0.0; // not necessary
+            graph[e].var.set(GRB_DoubleAttr_Start, 0.0); // set mip init feasible solution
+          }
+        }
+      }
+      //debug
+      #if 1
+      std::cout << "saving heuristic..." << std::endl;
+      for(int x = 0; x < size.x; ++x) {
+        for(int y = 0; y < size.y; ++y) {
+          int a = slic_labels[xy_to_index(x,y)];
+          for(int j = 0; j < 3; ++j) {
+            dst(x,y)[j] = graph_copy[(HeuristicGraph::vertex_descriptor)a].value[j];
+          }
+        }
+      }
+      if(image_file_type == "jpg" || image_file_type == "jpeg")
+        bg::jpeg_write_view(image_file_name+"_heu"+"."+image_file_type, bg::const_view(dst_img));
+      else if(image_file_type == "png")
+        bg::png_write_view(image_file_name+"_heu"+"."+image_file_type, bg::const_view(dst_img));
+      #endif
+    }
+
     // set callback
     myGRBCallback cb = myGRBCallback(graph);
     model.setCallback(&cb);

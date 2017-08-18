@@ -5,5 +5,5 @@ difficult.jpg     256x256   2000        10          1        0.13    14.9s 270 n
 difficult.jpg     256x256   2000        10          1        0.16    38.0s 213
 difficult.jpg     256x256   4000        10          1        0.2     38.3s 250
 
-big_elephant.jpg  1435x935  2000        100         1        0.053   18.5S 134
-big_elephant.jpg  1435x935  500         100         1        0.06    8.8 32 ok result
+big_elephant.jpg  1435x935  2000        10          1        0.053   14.6s 134
+big_elephant.jpg  1435x935  500         10          1        0.06    8.8   32 ok result

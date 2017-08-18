@@ -11,7 +11,6 @@ void myGRBCallback::callback() {
   try {
     if (where == GRB_CB_MIPSOL) {
       // MIP solution callback
-      std::cout << "callback" << std::endl;
       int nodecnt = (int) getDoubleInfo(GRB_CB_MIPSOL_NODCNT); // node number
       double obj = getDoubleInfo(GRB_CB_MIPSOL_OBJ); // objective value
       double obj_bnd = getDoubleInfo(GRB_CB_MIPSOL_OBJBND); // current error

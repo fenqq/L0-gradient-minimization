@@ -29,12 +29,23 @@ public:
                    [s](InternalScalar v_i) { return s*v_i; });
     return MathVector(out);
   }
+  MathVector& operator*=(InternalScalar s) {
+    std::transform(v.begin(), v.end(), v.begin(),
+                   [s](InternalScalar v_i) { return s*v_i; });
+    return *this;
+  }
+
 
   friend MathVector operator+(MathVector v1, MathVector v2) {
     InternalVector out;
     std::transform(v1.v.begin(), v1.v.end(), v2.v.begin(), out.begin(),
                    [](InternalScalar v1_i, InternalScalar v2_i) { return v1_i+v2_i; });
     return MathVector(out);
+  }
+  MathVector& operator+=(MathVector w) {
+    std::transform(v.begin(), v.end(), w.v.begin(), v.begin(),
+                   [](InternalScalar v1_i, InternalScalar v2_i) { return v1_i+v2_i; });
+    return *this;
   }
 
   friend MathVector operator-(MathVector v1, MathVector v2) {
@@ -46,6 +57,16 @@ public:
 
   Scalar& operator[](size_t i) {
     return v[i];
+  }
+
+  friend bool operator!=(const MathVector& v1, const MathVector& v2) {
+    auto it1 = v1.v.begin();
+    auto it2 = v2.v.begin();
+    for(; it1 != v1.v.end(); ++it1, ++it2){
+      if(*it1 != *it2)
+        return true;
+    }
+    return false;
   }
 
   InternalScalar norm() {
