@@ -71,7 +71,7 @@ int l0_gradient_minimization(Graph& graph, double lambda) {
         std::vector<int>& G_j = groups[j].elements;
         Vector& Y_i = groups[i].average_value;
         Vector& Y_j = groups[j].average_value;
-
+ 
         typename Vector::Scalar merge_left_hand_term = w_i*w_j*(Y_i-Y_j).norm()*(Y_i-Y_j).norm();
         typename Vector::Scalar merge_right_hand_term = beta*c_i_j*(w_i+w_j);
 

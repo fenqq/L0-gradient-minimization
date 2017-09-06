@@ -125,7 +125,7 @@ int main(int argc, char const *argv[]) {
           slic_number_of_superpixels = std::stoi(argv[++i]);
           goto next_param;
         } else {
-          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+          error_and_bye("not enough parameters for option --superpixels", -1);
         }
     }
     if(arg == "--superpixel-compactness" || arg == "-m") {
@@ -133,7 +133,7 @@ int main(int argc, char const *argv[]) {
           slic_compactness = (double)std::stod(argv[++i]);
           goto next_param;
         } else {
-          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+          error_and_bye("not enough parameters for option --superpixel-compactness", -1);
         }
     }
     if(arg == "--draw-superpixels") {
@@ -141,7 +141,7 @@ int main(int argc, char const *argv[]) {
           slic_draw_superpixels = std::stoi(argv[++i]);
           goto next_param;
         } else {
-          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+          error_and_bye("not enough parameters for option --draw-superpixels", -1);
         }
     }
     if(arg == "--disallow-one-pixel-segments") {
@@ -149,7 +149,7 @@ int main(int argc, char const *argv[]) {
           disallow_one_pixel_segments = std::stoi(argv[++i]);
           goto next_param;
         } else {
-          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+          error_and_bye("not enough parameters for option --disallow-one-pixel-segments", -1);
         }
     }
     if(arg == "--use-l0-heuristic") {
@@ -157,7 +157,7 @@ int main(int argc, char const *argv[]) {
           use_l0_heuristic = std::stoi(argv[++i]);
           goto next_param;
         } else {
-          error_and_bye("not enough parameters for option --grb_heuristic", -1);
+          error_and_bye("not enough parameters for option --use-l0-heuristic", -1);
         }
     }
     if(arg == "--jpeg" || arg == "--jpg") {
